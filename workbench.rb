@@ -85,4 +85,21 @@ module Workbench
   end
   module_function :read_vars_file
 
+  def get_file_from_gcs(bucket, filename, target_path)
+    common = Common.new
+    common.run_inline %W{gsutil cp gs://#{bucket}/#{filename} #{target_path}}
+  end
+  module_function :get_file_from_gcs
+
+  def get_test_credentials(creds_filename)
+    if !File.file?(creds_filename)
+      # Copy the stable creds file from its path in GCS to sa-key.json.
+      # Important: we must leave this key file in GCS, and not delete it in Cloud Console,
+      # or local development will stop working.
+      get_file_from_gcs("all-of-us-workbench-test-credentials",
+        "all-of-us-workbench-test-9b5c623a838e.json", creds_filename)
+    end
+  end
+  module_function :get_test_credentials
+
 end
