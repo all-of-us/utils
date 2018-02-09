@@ -11,7 +11,7 @@ module Workbench
   def check_submodules()
     # `git clone` includes submodule folders but nothing else.
     unless File.exists? File.join(LIBPROJECT_DIR, "utils", "README.md")
-      unless system(*%W{git submodule update --init})
+      unless system(*%W{git submodule update --init --recursive})
         common.error "`git submodule update` failed."
         exit 1
       end
@@ -37,13 +37,18 @@ module Workbench
   end
   module_function :assert_in_docker
 
+  def setup_workspace()
+    check_submodules
+    ensure_git_hooks
+  end
+  module_function :setup_workspace
+
   # Runs a command (typically project.rb) from the main file's directory.
   def handle_argv_or_die(main_filename)
     common = Common.new
     Dir.chdir(File.dirname(main_filename))
 
-    check_submodules
-    ensure_git_hooks
+    setup_workspace
     unless in_docker?
       common.docker.requires_docker
     end
