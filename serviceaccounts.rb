@@ -18,9 +18,24 @@ class ServiceAccountContext
     end
   end
 
+  def active_account()
+      return Common.new.capture_stdout %W{gcloud config get-value account}
+  end
+
   def run()
-    ENV["GOOGLE_APPLICATION_CREDENTIALS"] = @path
+    service_account = @service_account
+    if not service_account
+      service_account = "#{@project}@appspot.gserviceaccount.com"
+    end
+    if service_account == active_account()
+      # Don't generate another key if this account is already active. This can
+      # happen for nested service account contexts, for example.
+      yield
+      return
+    end
+
     common = Common.new
+    ENV["GOOGLE_APPLICATION_CREDENTIALS"] = @path
     if @project == "all-of-us-workbench-test" and not @service_account
       unless File.exists?(@path)
         common.run_inline %W{gsutil cp gs://#{@project}-credentials/app-engine-default-sa.json
@@ -28,10 +43,6 @@ class ServiceAccountContext
       end
       yield
     else
-      service_account = @service_account
-      if not service_account
-        service_account = "#{@project}@appspot.gserviceaccount.com"
-      end
       common.run_inline %W{gcloud iam service-accounts keys create #{@path}
           --iam-account=#{service_account} --project=#{@project}}
       begin
