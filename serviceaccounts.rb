@@ -13,22 +13,22 @@ class ServiceAccountContext
 
   SERVICE_ACCOUNT_KEY_PATH = "sa-key.json"
 
-  def initialize(project, service_account = nil, path = nil)
+  def initialize(project, service_account = nil, keyfile_path = nil)
     @project = project
     @service_account = service_account
     if not service_account
       @service_account = "#{@project}@appspot.gserviceaccount.com"
     end
-    @path = path
-    if not @path
-      @path = File.expand_path(SERVICE_ACCOUNT_KEY_PATH)
+    @keyfile_path = keyfile_path
+    if not @keyfile_path
+      @keyfile_path = File.expand_path(SERVICE_ACCOUNT_KEY_PATH)
     end
   end
 
-  def existing_file_account(path)
-    if File.exists?(path)
+  def existing_file_account(keyfile_path)
+    if File.exists?(keyfile_path)
       begin
-        return JSON.parse(File.read(path))["client_email"]
+        return JSON.parse(File.read(keyfile_path))["client_email"]
       rescue JSON::ParserError => e
         return nil
       end
@@ -38,31 +38,31 @@ class ServiceAccountContext
 
   def run()
     common = Common.new
-    ENV["GOOGLE_APPLICATION_CREDENTIALS"] = @path
-    if @service_account == existing_file_account(@path)
+    ENV["GOOGLE_APPLICATION_CREDENTIALS"] = @keyfile_path
+    if @service_account == existing_file_account(@keyfile_path)
       # Don't generate another key if this account is already active. This can
       # happen for nested service account contexts, for example.
-      common.status "Attaching to existing keyfile @ #{@path}"
+      common.status "Attaching to existing keyfile @ #{@keyfile_path}"
       yield
       return
     end
 
     if @service_account == "all-of-us-workbench-test@appspot.gserviceaccount.com"
-      unless File.exists?(@path)
-        common.run_inline %W{gsutil cp gs://#{@project}-credentials/app-engine-default-sa.json
-            #{@path}}
-      end
+      common.status "Copying key from GCS for #{@service_account} @ #{@keyfile_path}"
+      common.run_inline %W{gsutil cp gs://#{@project}-credentials/app-engine-default-sa.json
+            #{@keyfile_path}}
       yield
     else
-      common.run_inline %W{gcloud iam service-accounts keys create #{@path}
+      common.status "Creating new key for #{@service_account} @ #{@keyfile_path}"
+      common.run_inline %W{gcloud iam service-accounts keys create #{@keyfile_path}
           --iam-account=#{@service_account} --project=#{@project}}
       begin
         yield
       ensure
-        tmp_private_key = `grep private_key_id #{@path} | cut -d\\\" -f4`.strip()
+        tmp_private_key = `grep private_key_id #{@keyfile_path} | cut -d\\\" -f4`.strip()
         common.run_inline %W{gcloud iam service-accounts keys delete #{tmp_private_key} -q
            --iam-account=#{@service_account} --project=#{@project}}
-        common.run_inline %W{rm #{@path}}
+        common.run_inline %W{rm #{@keyfile_path}}
       end
     end
   end
