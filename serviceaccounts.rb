@@ -9,12 +9,16 @@ require_relative "utils/common"
 # The test SA key is a special case for local development, and is initialized
 # but not deleted.
 class ServiceAccountContext
+  attr_reader :service_account
 
   SERVICE_ACCOUNT_KEY_PATH = "sa-key.json"
 
   def initialize(project, service_account = nil, path = nil)
     @project = project
     @service_account = service_account
+    if not service_account
+      @service_account = "#{@project}@appspot.gserviceaccount.com"
+    end
     @path = path
     if not @path
       @path = File.expand_path(SERVICE_ACCOUNT_KEY_PATH)
@@ -35,11 +39,7 @@ class ServiceAccountContext
   def run()
     common = Common.new
     ENV["GOOGLE_APPLICATION_CREDENTIALS"] = @path
-    service_account = @service_account
-    if not service_account
-      service_account = "#{@project}@appspot.gserviceaccount.com"
-    end
-    if service_account == existing_file_account(@path)
+    if @service_account == existing_file_account(@path)
       # Don't generate another key if this account is already active. This can
       # happen for nested service account contexts, for example.
       common.status "Attaching to existing keyfile @ #{@path}"
@@ -47,7 +47,7 @@ class ServiceAccountContext
       return
     end
 
-    if service_account == "all-of-us-workbench-test@appspot.gserviceaccount.com"
+    if @service_account == "all-of-us-workbench-test@appspot.gserviceaccount.com"
       unless File.exists?(@path)
         common.run_inline %W{gsutil cp gs://#{@project}-credentials/app-engine-default-sa.json
             #{@path}}
@@ -55,13 +55,13 @@ class ServiceAccountContext
       yield
     else
       common.run_inline %W{gcloud iam service-accounts keys create #{@path}
-          --iam-account=#{service_account} --project=#{@project}}
+          --iam-account=#{@service_account} --project=#{@project}}
       begin
         yield
       ensure
         tmp_private_key = `grep private_key_id #{@path} | cut -d\\\" -f4`.strip()
         common.run_inline %W{gcloud iam service-accounts keys delete #{tmp_private_key} -q
-           --iam-account=#{service_account} --project=#{@project}}
+           --iam-account=#{@service_account} --project=#{@project}}
         common.run_inline %W{rm #{@path}}
       end
     end
