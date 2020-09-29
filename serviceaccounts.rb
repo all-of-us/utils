@@ -47,7 +47,7 @@ class ServiceAccountContext
       return
     end
 
-    if service_account == "all-of-us-workbench-test@appspot.gserviceaccount.com"
+    if service_account == "all-of-us-workbench-test@appspot.gserviceaccount.com" || service_account == "aou-db-test@appspot.gserviceaccount.com"
       unless File.exists?(@path)
         common.run_inline %W{gsutil cp gs://#{@project}-credentials/app-engine-default-sa.json
             #{@path}}
