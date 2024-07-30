@@ -26,7 +26,7 @@ class ServiceAccountContext
   end
 
   def existing_file_account(keyfile_path)
-    if File.exists?(keyfile_path)
+    if File.exist?(keyfile_path)
       begin
         return JSON.parse(File.read(keyfile_path))["client_email"]
       rescue JSON::ParserError => e
